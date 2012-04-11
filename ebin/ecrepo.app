@@ -7,6 +7,7 @@
     ]},
     {modules, [
         ecrepo,
+        ecrepo_cli,
         ecrepo_getopt,
         ecrepo_indices,
         ecrepo_lib,

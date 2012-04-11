@@ -1,0 +1,4 @@
+#! /usr/bin/escript
+
+main(Args) ->
+    ecrepo_cli:main(Args).
