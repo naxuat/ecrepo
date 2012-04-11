@@ -1,4 +1,5 @@
 -module(ecrepo_xml).
+-vsn(?VERSION).
 
 -export([
     document/1,

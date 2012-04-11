@@ -1,4 +1,5 @@
 -module(ecrepo).
+-vsn(?VERSION).
 
 -include_lib("kernel/include/file.hrl").
 -ifdef(TEST).

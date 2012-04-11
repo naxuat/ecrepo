@@ -1,4 +1,5 @@
 -module(ecrepo_indices).
+-vsn(?VERSION).
 
 -export([
     repomd/3,

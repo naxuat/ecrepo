@@ -1,4 +1,5 @@
 -module(ecrepo_utils).
+-vsn(?VERSION).
 
 -export([
     get/2

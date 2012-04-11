@@ -1,4 +1,5 @@
 -module(ecrepo_lib).
+-vsn(?VERSION).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
