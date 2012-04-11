@@ -1,4 +1,13 @@
 #! /usr/bin/escript
 
 main(Args) ->
+    case filelib:is_file("ebin/ecrepo.app") of
+        true ->
+            code:add_pathsa(["ebin" | filelib:wildcard("deps/*/ebin", ".")]);
+
+        _ ->
+            ok
+    end,
     ecrepo_cli:main(Args).
+
+% vim:ft=erlang
