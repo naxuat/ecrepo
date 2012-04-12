@@ -24,7 +24,7 @@ read(FileName) ->
                           {filesize, Size},
                           {filetime, MTime},
                           {sha256, esums:format(sha256, Sum)},
-                          {location, list_to_binary(FileName)}])}.
+                          {location, iolist_to_binary(FileName)}])}.
 
 str2evr(String) when is_binary(String) ->
     case re:run(String, ?EVR_RE, [{capture, ['E', 'V', 'R'], binary}]) of
