@@ -1,7 +1,6 @@
 -module(ecrepo).
 -vsn(?VERSION).
 
--include_lib("kernel/include/file.hrl").
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -18,7 +17,7 @@
 read(FileName) ->
     {ok, Data} = ecrepo_lib:header(FileName),
     {ok, HeaderStart, HeaderEnd} = get_header_range(FileName),
-    {ok, Size, MTime} = get_info(FileName),
+    {ok, Size, MTime} = ecrepo_utils:get_info(FileName),
     {sha256, Sum} = lists:keyfind(sha256, 1, esums_file:calc(FileName)),
     {ok, normalize(Data, [{header_start, HeaderStart},
                           {header_end, HeaderEnd},
@@ -265,19 +264,6 @@ get_big_int(FD) ->
     {ok, Data} = file:read(FD, 4),
     <<Result:32/big-unsigned-integer>> = Data,
     Result.
-
-get_info(FName) ->
-    % This function seems to be introduced in a later release of Erlang.
-    % file:read_file_info(FName, [{time, posix}]).
-    case file:read_file_info(FName) of
-        {ok, #file_info{size=Size, mtime=MTime}} ->
-            % {Size, esums_helpers:posix_time(erlang:localtime_to_universaltime(MTime)),
-            % ecrepo_utils:posix_time(MTime)}.
-            {ok, Size, esums_helpers:posix_time(erlang:localtime_to_universaltime(MTime))};
-
-        Other ->
-            Other
-    end.
 % }}}
 
 % {{{ EUnit tests
