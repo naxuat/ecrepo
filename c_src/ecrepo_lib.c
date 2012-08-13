@@ -64,12 +64,11 @@ static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *file
             continue;
         }
 
-        int array = rpmTagGetReturnType(tag_data.tag) == RPM_ARRAY_RETURN_TYPE;
         rpmTagClass klass = rpmTagTypeGetClass(tag_data.type);
 
         ERL_NIF_TERM value;
 
-        if (array) {
+        if (rpmTagGetReturnType(tag_data.tag) == RPM_ARRAY_RETURN_TYPE) {
             /* The order of items should be kept and it seems unreasonable to
              * create and reverse a list
              */
