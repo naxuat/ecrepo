@@ -16,6 +16,7 @@
     static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *, int, const ERL_NIF_TERM []);
 
     static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *, FD_t, const char *);
+    static ERL_NIF_TERM _ecrepo_lib_convert(ErlNifEnv *, rpmtd);
     static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *, rpmtd, rpmTagClass);
     static ERL_NIF_TERM _ecrepo_lib_error(ErlNifEnv *, const char *);
     static ERL_NIF_TERM _ecrepo_lib_ok(ErlNifEnv *, ERL_NIF_TERM);
@@ -256,39 +257,48 @@ static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *file
             continue;
         }
 
-        rpmTagClass klass = rpmTagTypeGetClass(tag_data.type);
 
-        ERL_NIF_TERM value;
-
-        if (rpmTagGetReturnType(tag_data.tag) == RPM_ARRAY_RETURN_TYPE) {
-            /* The order of items should be kept and it seems unreasonable to
-             * create and reverse a list
-             */
-            ERL_NIF_TERM *tempo = (ERL_NIF_TERM *)calloc(rpmtdCount(&tag_data), sizeof(ERL_NIF_TERM));
-
-            if (tempo == NULL) {
-                value = _ecrepo_lib_error(env, NOMEMORY);
-            } else {
-                int i;
-
-                for (i = 0; rpmtdNext(&tag_data) >= 0; ++i) {
-                    tempo[i] = _ecrepo_lib_convert_data(env, &tag_data, klass);
-                }
-
-                value = enif_make_list_from_array(env, tempo, i);
-
-                free(tempo);
-            }
-        } else {
-            value = _ecrepo_lib_convert_data(env, &tag_data, klass);
-        }
-
-        result = enif_make_list_cell(env, enif_make_tuple2(env, enif_make_int(env, tag_data.tag), value), result);
+        result = enif_make_list_cell(env,
+                                     enif_make_tuple2(env,
+                                                      enif_make_int(env, tag_data.tag),
+                                                      _ecrepo_lib_convert(env, &tag_data)),
+                                     result);
     }
 
     headerFreeIterator(hi);
 
     return _ecrepo_lib_ok(env, result);
+}
+
+static ERL_NIF_TERM _ecrepo_lib_convert(ErlNifEnv *env, rpmtd tag_data) {
+    ERL_NIF_TERM result;
+
+    rpmTagClass klass = rpmTagTypeGetClass(tag_data->type);
+
+    if (rpmTagGetReturnType(tag_data->tag) == RPM_ARRAY_RETURN_TYPE) {
+        /* The order of items should be kept and it seems unreasonable to
+            * create and reverse a list
+            */
+        ERL_NIF_TERM *tempo = (ERL_NIF_TERM *)calloc(rpmtdCount(tag_data), sizeof(ERL_NIF_TERM));
+
+        if (tempo == NULL) {
+            result = _ecrepo_lib_error(env, NOMEMORY);
+        } else {
+            int i;
+
+            for (i = 0; rpmtdNext(tag_data) >= 0; ++i) {
+                tempo[i] = _ecrepo_lib_convert_data(env, tag_data, klass);
+            }
+
+            result = enif_make_list_from_array(env, tempo, i);
+
+            free(tempo);
+        }
+    } else {
+        result = _ecrepo_lib_convert_data(env, tag_data, klass);
+    }
+
+    return result;
 }
 
 static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *env, rpmtd tag_data, rpmTagClass klass) {
