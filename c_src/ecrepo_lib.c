@@ -15,6 +15,8 @@
     static ERL_NIF_TERM ecrepo_lib_name2tag(ErlNifEnv *, int, const ERL_NIF_TERM []);
     static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *, int, const ERL_NIF_TERM []);
 
+    static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *, FD_t, const char *);
+    static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *, rpmtd, rpmTagClass);
     static ERL_NIF_TERM _ecrepo_lib_error(ErlNifEnv *, const char *);
     static ERL_NIF_TERM _ecrepo_lib_ok(ErlNifEnv *, ERL_NIF_TERM);
     static ERL_NIF_TERM _string_to_binary(ErlNifEnv *, const char *);
@@ -28,76 +30,20 @@ static ErlNifFunc nif_funcs[] = {
     {"quote", 1, ecrepo_lib_quote}
 };
 
-static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *env, rpmtd tag_data, rpmTagClass klass) {
-    switch (klass) {
-        case RPM_NULL_CLASS:
-            return enif_make_atom(env, "null");
+static int on_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
+    rpmts ts;
 
-        case RPM_NUMERIC_CLASS:
-            return enif_make_uint64(env, rpmtdGetNumber(tag_data));
+    rpmReadConfigFiles(NULL, NULL);
 
-        case RPM_STRING_CLASS:
-            return _string_to_binary(env, rpmtdGetString(tag_data));
+    ts = rpmtsCreate();
+    rpmtsSetVSFlags(ts, _RPMVSF_NOSIGNATURES);
 
-        case RPM_BINARY_CLASS:
-            return _binary_to_binary(env, tag_data->data, tag_data->count);
+    *priv_data = ts;
 
-        default:
-            return enif_make_atom(env, "unknown");
-    }
+    return 0;
 }
 
-static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *filename) {
-    Header h;
-    rpmRC rc;
-    rpmts ts = enif_priv_data(env);
-    HeaderIterator hi;
-    struct rpmtd_s tag_data;
-    ERL_NIF_TERM result = enif_make_list(env, 0);
-
-    if ((rc = rpmReadPackageFile(ts, fd, filename, &h)) != RPMRC_OK) {
-        return _ecrepo_lib_error(env, "read_package");
-    }
-
-    for (hi = headerInitIterator(h); headerNext(hi, &tag_data); rpmtdFreeData(&tag_data)) {
-        if (tag_data.tag < 1000) {
-            continue;
-        }
-
-        rpmTagClass klass = rpmTagTypeGetClass(tag_data.type);
-
-        ERL_NIF_TERM value;
-
-        if (rpmTagGetReturnType(tag_data.tag) == RPM_ARRAY_RETURN_TYPE) {
-            /* The order of items should be kept and it seems unreasonable to
-             * create and reverse a list
-             */
-            ERL_NIF_TERM *tempo = (ERL_NIF_TERM *)calloc(rpmtdCount(&tag_data), sizeof(ERL_NIF_TERM));
-
-            if (tempo == NULL) {
-                value = _ecrepo_lib_error(env, NOMEMORY);
-            } else {
-                int i;
-
-                for (i = 0; rpmtdNext(&tag_data) >= 0; ++i) {
-                    tempo[i] = _ecrepo_lib_convert_data(env, &tag_data, klass);
-                }
-
-                value = enif_make_list_from_array(env, tempo, i);
-
-                free(tempo);
-            }
-        } else {
-            value = _ecrepo_lib_convert_data(env, &tag_data, klass);
-        }
-
-        result = enif_make_list_cell(env, enif_make_tuple2(env, enif_make_int(env, tag_data.tag), value), result);
-    }
-
-    headerFreeIterator(hi);
-
-    return _ecrepo_lib_ok(env, result);
-}
+ERL_NIF_INIT(ecrepo_lib, nif_funcs, &on_load, NULL, NULL, NULL);
 
 static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary binary;
@@ -293,6 +239,77 @@ static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *env, int argc, const ERL_NIF_TER
 /*
 {{{ Helpers
  */
+static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *filename) {
+    Header h;
+    rpmRC rc;
+    rpmts ts = enif_priv_data(env);
+    HeaderIterator hi;
+    struct rpmtd_s tag_data;
+    ERL_NIF_TERM result = enif_make_list(env, 0);
+
+    if ((rc = rpmReadPackageFile(ts, fd, filename, &h)) != RPMRC_OK) {
+        return _ecrepo_lib_error(env, "read_package");
+    }
+
+    for (hi = headerInitIterator(h); headerNext(hi, &tag_data); rpmtdFreeData(&tag_data)) {
+        if (tag_data.tag < 1000) {
+            continue;
+        }
+
+        rpmTagClass klass = rpmTagTypeGetClass(tag_data.type);
+
+        ERL_NIF_TERM value;
+
+        if (rpmTagGetReturnType(tag_data.tag) == RPM_ARRAY_RETURN_TYPE) {
+            /* The order of items should be kept and it seems unreasonable to
+             * create and reverse a list
+             */
+            ERL_NIF_TERM *tempo = (ERL_NIF_TERM *)calloc(rpmtdCount(&tag_data), sizeof(ERL_NIF_TERM));
+
+            if (tempo == NULL) {
+                value = _ecrepo_lib_error(env, NOMEMORY);
+            } else {
+                int i;
+
+                for (i = 0; rpmtdNext(&tag_data) >= 0; ++i) {
+                    tempo[i] = _ecrepo_lib_convert_data(env, &tag_data, klass);
+                }
+
+                value = enif_make_list_from_array(env, tempo, i);
+
+                free(tempo);
+            }
+        } else {
+            value = _ecrepo_lib_convert_data(env, &tag_data, klass);
+        }
+
+        result = enif_make_list_cell(env, enif_make_tuple2(env, enif_make_int(env, tag_data.tag), value), result);
+    }
+
+    headerFreeIterator(hi);
+
+    return _ecrepo_lib_ok(env, result);
+}
+
+static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *env, rpmtd tag_data, rpmTagClass klass) {
+    switch (klass) {
+        case RPM_NULL_CLASS:
+            return enif_make_atom(env, "null");
+
+        case RPM_NUMERIC_CLASS:
+            return enif_make_uint64(env, rpmtdGetNumber(tag_data));
+
+        case RPM_STRING_CLASS:
+            return _string_to_binary(env, rpmtdGetString(tag_data));
+
+        case RPM_BINARY_CLASS:
+            return _binary_to_binary(env, tag_data->data, tag_data->count);
+
+        default:
+            return enif_make_atom(env, "unknown");
+    }
+}
+
 static ERL_NIF_TERM _ecrepo_lib_error(ErlNifEnv *env, const char *error) {
     return enif_make_tuple2(env, enif_make_atom(env, "error"), enif_make_atom(env, error));
 }
@@ -319,18 +336,3 @@ static ERL_NIF_TERM _binary_to_binary(ErlNifEnv *env, const void *data, size_t s
 /*
 }}}
  */
-
-static int on_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
-    rpmts ts;
-
-    rpmReadConfigFiles(NULL, NULL);
-
-    ts = rpmtsCreate();
-    rpmtsSetVSFlags(ts, _RPMVSF_NOSIGNATURES);
-
-    *priv_data = ts;
-
-    return 0;
-}
-
-ERL_NIF_INIT(ecrepo_lib, nif_funcs, &on_load, NULL, NULL, NULL);
