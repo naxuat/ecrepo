@@ -55,7 +55,7 @@ nif_stub_error(Line) ->
 load_test() ->
     ok.
 
-compare_test() -> 
+compare_test() ->
     {"Version comparison tests", [
         ?_assertEqual(0, compare("1.0", "1.0")),
         ?_assertEqual(0, compare("0:1.0", "1.0")),
