@@ -28,7 +28,7 @@ static ErlNifFunc nif_funcs[] = {
     {"quote", 1, ecrepo_lib_quote}
 };
 
-static ERL_NIF_TERM _ecrepo_lib_convert_one(ErlNifEnv *env, rpmtd tag_data, rpmTagClass klass) {
+static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *env, rpmtd tag_data, rpmTagClass klass) {
     switch (klass) {
         case RPM_NULL_CLASS:
             return enif_make_atom(env, "null");
@@ -80,7 +80,7 @@ static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *file
                 int i;
 
                 for (i = 0; rpmtdNext(&tag_data) >= 0; ++i) {
-                    tempo[i] = _ecrepo_lib_convert_one(env, &tag_data, klass);
+                    tempo[i] = _ecrepo_lib_convert_data(env, &tag_data, klass);
                 }
 
                 value = enif_make_list_from_array(env, tempo, i);
@@ -88,7 +88,7 @@ static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *file
                 free(tempo);
             }
         } else {
-            value = _ecrepo_lib_convert_one(env, &tag_data, klass);
+            value = _ecrepo_lib_convert_data(env, &tag_data, klass);
         }
 
         result = enif_make_list_cell(env, enif_make_tuple2(env, enif_make_int(env, tag_data.tag), value), result);
