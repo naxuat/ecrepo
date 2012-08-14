@@ -15,6 +15,9 @@
     static ERL_NIF_TERM ecrepo_lib_name2tag(ErlNifEnv *, int, const ERL_NIF_TERM []);
     static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *, int, const ERL_NIF_TERM []);
 
+/*
+ {{{ Forward declaration of helpers
+ */
     static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *, FD_t, const char *);
     static ERL_NIF_TERM _ecrepo_lib_convert(ErlNifEnv *, rpmtd);
     static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *, rpmtd, rpmTagClass);
@@ -22,6 +25,9 @@
     static ERL_NIF_TERM _ecrepo_lib_ok(ErlNifEnv *, ERL_NIF_TERM);
     static ERL_NIF_TERM _string_to_binary(ErlNifEnv *, const char *);
     static ERL_NIF_TERM _binary_to_binary(ErlNifEnv *, const void *, size_t);
+/*
+ }}}
+ */
 
 static ErlNifFunc nif_funcs[] = {
     {"header", 1, ecrepo_lib_header},
