@@ -58,7 +58,7 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
     FD_t fd;
     ERL_NIF_TERM result;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &binary)) {
+    if (argc != 1 || !enif_inspect_iolist_as_binary(env, argv[0], &binary)) {
         return enif_make_badarg(env);
     }
 
