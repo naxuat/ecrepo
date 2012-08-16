@@ -1,6 +1,9 @@
 .PHONY: deps xref
 
-all: compile test
+all: ecrepo test
+
+ecrepo: compile
+	@rebar skip_deps=true escriptize
 
 compile: deps
 	@rebar compile

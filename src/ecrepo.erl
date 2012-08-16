@@ -8,11 +8,15 @@
 -include("ecrepo_common.hrl").
 
 -export([
+    main/1,
     read/1,
     str2evr/1
 ]).
 
 -define(EVR_RE, <<"^((?P<E>[^:]+):)?(?P<V>[^-]*)(-(?P<R>[^-]+))?$">>).
+
+main(Args) ->
+    ecrepo_cli:main(Args).
 
 read(FileName) ->
     {ok, Data} = ecrepo_lib:header(FileName),
