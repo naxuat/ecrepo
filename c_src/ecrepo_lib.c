@@ -18,11 +18,14 @@
 /*
  {{{ Forward declaration of helpers
  */
-    static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *, FD_t, const char *);
+    static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *, FD_t, const char *, int *, int);
+    static ERL_NIF_TERM _ecrepo_lib_header_all(ErlNifEnv *, Header);
+    static ERL_NIF_TERM _ecrepo_lib_header_given(ErlNifEnv *, Header, int *, int);
     static ERL_NIF_TERM _ecrepo_lib_convert(ErlNifEnv *, rpmtd);
     static ERL_NIF_TERM _ecrepo_lib_convert_data(ErlNifEnv *, rpmtd, rpmTagClass);
     static ERL_NIF_TERM _ecrepo_lib_error(ErlNifEnv *, const char *);
     static ERL_NIF_TERM _ecrepo_lib_ok(ErlNifEnv *, ERL_NIF_TERM);
+    static int *_list_to_list(ErlNifEnv *, ERL_NIF_TERM, int, ERL_NIF_TERM *);
     static ERL_NIF_TERM _string_to_binary(ErlNifEnv *, const char *);
     static ERL_NIF_TERM _binary_to_binary(ErlNifEnv *, const void *, size_t);
 /*
@@ -36,6 +39,16 @@ static ErlNifFunc nif_funcs[] = {
     {"name2tag", 1, ecrepo_lib_name2tag},
     {"quote", 1, ecrepo_lib_quote}
 };
+
+static int DEFAULT_TAGS[] = {
+    1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007,
+    1009, 1011, 1014, 1015, 1016, 1020, 1022, 1030,
+    1037, 1044, 1046, 1047, 1048, 1049, 1050, 1053,
+    1054, 1055, 1080, 1081, 1082, 1090, 1106, 1112,
+    1113, 1114, 1115, 1116, 1117, 1118
+};
+
+#define DEFAULT_TAGS_NO (sizeof(DEFAULT_TAGS)/sizeof(DEFAULT_TAGS[0]))
 
 static int on_load(ErlNifEnv *env, void **priv_data, ERL_NIF_TERM load_info) {
     rpmts ts;
@@ -57,9 +70,48 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
     char *filename;
     FD_t fd;
     ERL_NIF_TERM result;
+    int *tags = NULL;
+    int tags_no;
 
-    if (argc != 1 || !enif_inspect_iolist_as_binary(env, argv[0], &binary)) {
+    if (argc < 1 || argc > 2 || !enif_inspect_iolist_as_binary(env, argv[0], &binary)) {
         return enif_make_badarg(env);
+    }
+
+    if (argc == 2) {
+        unsigned length;
+
+        if (enif_get_atom_length(env, argv[1], &length, ERL_NIF_LATIN1)) {
+            char *atom;
+
+            if ((atom = (char *)calloc(length + 1, sizeof(char))) == NULL) {
+                return _ecrepo_lib_error(env, NOMEMORY);
+            } else {
+                enif_get_atom(env, argv[1], atom, length, ERL_NIF_LATIN1);
+
+                if (strcmp(atom, "all") == 0) {
+                    tags = NULL;    /* Duplicate of above? */
+                } else if (strcmp(atom, "index") == 0) {
+                    tags = DEFAULT_TAGS;
+                    tags_no = DEFAULT_TAGS_NO;
+                } else {
+                    free(atom);
+
+                    return enif_make_badarg(env);
+                }
+
+                free(atom);
+            }
+        } else if (enif_get_list_length(env, argv[1], &length)) {
+            if ((tags = _list_to_list(env, argv[1], length, &result)) == NULL) {
+                return result;
+            }
+            tags_no = length;
+        } else {
+            return enif_make_badarg(env);
+        }
+    } else {
+        tags = DEFAULT_TAGS;
+        tags_no = DEFAULT_TAGS_NO;
     }
 
     if ((filename = (char *)calloc(binary.size + 1, sizeof(char))) == NULL) {
@@ -74,7 +126,11 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
         return _ecrepo_lib_error(env, "open");
     }
 
-    result = _ecrepo_lib_header(env, fd, filename);
+    result = _ecrepo_lib_header(env, fd, filename, tags, tags_no);
+
+    if (tags != NULL && tags != DEFAULT_TAGS) {
+        free(tags);
+    }
 
     free(filename);
     Fclose(fd);
@@ -246,23 +302,28 @@ static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *env, int argc, const ERL_NIF_TER
 /*
 {{{ Helpers
  */
-static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *filename) {
+static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *filename, int *tags, int tags_no) {
     Header h;
     rpmRC rc;
     rpmts ts = enif_priv_data(env);
-    HeaderIterator hi;
-    struct rpmtd_s tag_data;
-    ERL_NIF_TERM result = enif_make_list(env, 0);
 
     if ((rc = rpmReadPackageFile(ts, fd, filename, &h)) != RPMRC_OK) {
         return _ecrepo_lib_error(env, "read_package");
     }
 
+    return tags == NULL ? _ecrepo_lib_header_all(env, h) :
+                          _ecrepo_lib_header_given(env, h, tags, tags_no);
+}
+
+static ERL_NIF_TERM _ecrepo_lib_header_all(ErlNifEnv *env, Header h) {
+    HeaderIterator hi;
+    struct rpmtd_s tag_data;
+    ERL_NIF_TERM result = enif_make_list(env, 0);
+
     for (hi = headerInitIterator(h); headerNext(hi, &tag_data); rpmtdFreeData(&tag_data)) {
         if (tag_data.tag < 1000) {
             continue;
         }
-
 
         result = enif_make_list_cell(env,
                                      enif_make_tuple2(env,
@@ -272,6 +333,28 @@ static ERL_NIF_TERM _ecrepo_lib_header(ErlNifEnv *env, FD_t fd, const char *file
     }
 
     headerFreeIterator(hi);
+
+    return _ecrepo_lib_ok(env, result);
+}
+
+static ERL_NIF_TERM _ecrepo_lib_header_given(ErlNifEnv *env, Header h, int *tags, int tags_no) {
+    struct rpmtd_s tag_data;
+    ERL_NIF_TERM result = enif_make_list(env, 0);
+    int i;
+
+    for (i = 0; i < tags_no; ++i) {
+        if (!headerGet(h, tags[i], &tag_data, HEADERGET_DEFAULT)) {
+            continue;       /* Skip missing tags */
+        }
+
+        result = enif_make_list_cell(env,
+                                     enif_make_tuple2(env,
+                                                      enif_make_int(env, tag_data.tag),
+                                                      _ecrepo_lib_convert(env, &tag_data)),
+                                     result);
+
+        rpmtdFreeData(&tag_data);
+    }
 
     return _ecrepo_lib_ok(env, result);
 }
@@ -332,6 +415,43 @@ static ERL_NIF_TERM _ecrepo_lib_error(ErlNifEnv *env, const char *error) {
 
 static ERL_NIF_TERM _ecrepo_lib_ok(ErlNifEnv *env, ERL_NIF_TERM result) {
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), result);
+}
+
+static int *_list_to_list(ErlNifEnv *env, ERL_NIF_TERM list, int items, ERL_NIF_TERM *error) {
+    int *result = (int *)calloc(items, sizeof(int));
+    int i;
+    ERL_NIF_TERM head;
+
+    if (result == NULL) {
+        *error = _ecrepo_lib_error(env, NOMEMORY);
+
+        return result;
+    }
+
+    for (i = 0; i < items; ++i) {
+        if (!enif_get_list_cell(env, list, &head, &list)) {
+            /* In theory, this should never happend */
+            free(result);
+
+            *error = enif_make_badarg(env);
+
+            return NULL;
+        }
+
+        int value;
+
+        if (!enif_get_int(env, head, &value)) {
+            free(result);
+
+            *error = enif_make_badarg(env);
+
+            return NULL;
+        }
+
+        result[i] = value;
+    }
+
+    return result;
 }
 
 static ERL_NIF_TERM _string_to_binary(ErlNifEnv *env, const char *string) {

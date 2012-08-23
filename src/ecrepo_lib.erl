@@ -7,6 +7,7 @@
 
 -export([
     header/1,
+    header/2,
     compare/2,
     tag2name/1,
     name2tag/1,
@@ -30,6 +31,9 @@ init() ->
     erlang:load_nif(filename:join(PrivDir, ?SO_NAME), 0).
 
 header(_) ->
+    ?NIF_STUB.
+
+header(_, _) ->
     ?NIF_STUB.
 
 compare(_, _) ->
