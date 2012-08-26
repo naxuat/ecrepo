@@ -219,82 +219,52 @@ static ERL_NIF_TERM ecrepo_lib_name2tag(ErlNifEnv *env, int argc, const ERL_NIF_
     return result;
 }
 
+#define MAX_QUOTED  5
+
+static struct {
+    char sym;
+    char target[MAX_QUOTED + 1];
+} quoted[] = {
+    {'&', "&amp;"},
+    {'<', "&lt;"},
+    {'>', "&gt;"},
+    {'"', "&quot;"},
+};
+
+#define QUOTED_NO (sizeof(quoted)/sizeof(quoted[0]))
+
 static ERL_NIF_TERM ecrepo_lib_quote(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary binary, result;
-    size_t dst, i;
+    size_t i, j;
+    unsigned char *ptr;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &binary)) {
         return enif_make_badarg(env);
     }
 
-    for (dst = i = 0; i < binary.size; i++) {
-        switch (binary.data[i]) {
-            case '&':
-                dst += 5;
-                break;
-
-            case '<':
-                dst += 4;
-                break;
-
-            case '>':
-                dst += 4;
-                break;
-
-            case '"':
-                dst += 6;
-                break;
-
-            default:
-                ++dst;
-        }
-    }
-
-    if (dst == binary.size) {
-        return argv[0];
-    }
-
-    if (!enif_alloc_binary(dst, &result)) {
+    if (!enif_alloc_binary(binary.size * MAX_QUOTED + 1, &result)) {
         return _ecrepo_lib_error(env, NOMEMORY);
     }
 
-    for (dst = i = 0; i < binary.size; i++) {
-        switch (binary.data[i]) {
-            case '&':
-                result.data[dst++] = '&';
-                result.data[dst++] = 'a';
-                result.data[dst++] = 'm';
-                result.data[dst++] = 'p';
-                result.data[dst++] = ';';
-                break;
+    for (ptr = result.data, i = 0; i < binary.size; i++) {
+        for (j = 0; j < QUOTED_NO; j++) {
+            if (binary.data[i] == quoted[j].sym) {
+                size_t len = strlen(quoted[j].target);
 
-            case '<':
-                result.data[dst++] = '&';
-                result.data[dst++] = 'l';
-                result.data[dst++] = 't';
-                result.data[dst++] = ';';
-                break;
+                memcpy(ptr, quoted[j].target, len);
 
-            case '>':
-                result.data[dst++] = '&';
-                result.data[dst++] = 'g';
-                result.data[dst++] = 't';
-                result.data[dst++] = ';';
-                break;
+                ptr += len;
 
-            case '"':
-                result.data[dst++] = '&';
-                result.data[dst++] = 'q';
-                result.data[dst++] = 'u';
-                result.data[dst++] = 'o';
-                result.data[dst++] = 't';
-                result.data[dst++] = ';';
                 break;
+            }
+        }
 
-            default:
-                result.data[dst++] = binary.data[i];
+        if (j == QUOTED_NO) {
+            *ptr++ = binary.data[i];
         }
     }
+
+    enif_realloc_binary(&result, ptr - result.data);
 
     return enif_make_binary(env, &result);
 }

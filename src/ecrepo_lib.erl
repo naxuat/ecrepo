@@ -81,5 +81,12 @@ compare_test_() ->
         ?_assertEqual(1, compare("20101122", "20101121")),
         ?_assertEqual(0, compare("2.0", "2_0"))
     ]}.
+
+quote_test_() ->
+    {"String quoting tests", [
+        ?_assertEqual(<<"hello">>, quote("hello")),
+        ?_assertEqual(<<"hel&amp;o">>, quote("hel&o")),
+        ?_assertEqual(<<"he&lt;lo">>, quote("he<lo"))
+    ]}.
 -endif.
 % }}}
