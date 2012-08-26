@@ -5,7 +5,10 @@
 
 -export([
     get/2,
-    get_info/1
+    get_info/1,
+    abspath/1,
+    simple_join/2,
+    copy/3
 ]).
 
 get(Defaults, PropList) ->
@@ -25,6 +28,27 @@ get_info(FName) ->
             Other
     end.
 
+% Unfortunately, filename:absname/1 and filename:join/* do not have
+% intermediate . as I'd like them to.
+% Until I find a solution, the hack below will be used.
+abspath(Path) ->
+    case filelib:is_dir(Path) of
+        true ->
+            get_abspath(Path);
+
+        false ->
+            filename:join(get_abspath(filename:dirname(Path)),
+                          filename:basename(Path))
+    end.
+
+simple_join(DirName, FileName) ->
+    <<DirName/binary, $/, FileName/binary>>.
+
+copy(Source, Dest, false) ->
+    file:copy(Source, Dest);
+copy(Source, Dest, true) ->
+    file:rename(Source, Dest).
+
 %% Internal functions
 
 take([{Key, Default} | Rest], Props, Result) ->
@@ -37,3 +61,10 @@ take([{Key, Default} | Rest], Props, Result) ->
     end;
 take([], Props, Result) ->
     {lists:reverse(Result), Props}.
+
+get_abspath(Path) ->
+    {ok, OldCWD} = file:get_cwd(),
+    file:set_cwd(Path),
+    {ok, Result} = file:get_cwd(),
+    file:set_cwd(OldCWD),
+    Result.
