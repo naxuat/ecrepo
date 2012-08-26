@@ -10,7 +10,8 @@
 -export([
     main/1,
     read/1,
-    str2evr/1
+    str2evr/1,
+    name/2
 ]).
 
 -define(EVR_RE, <<"^((?P<E>[^:]+):)?(?P<V>[^-]*)(-(?P<R>[^-]+))?$">>).
@@ -44,8 +45,18 @@ str2evr(String) when is_binary(String) ->
 str2evr(String) when is_list(String) ->
     str2evr(list_to_binary(String)).
 
+name(RPM, file) ->
+    {arch, Arch} = lists:keyfind(arch, 1, RPM),
+    <<(base_name(RPM))/binary, $., Arch/binary, ".rpm">>;
+name(RPM, base) ->
+    base_name(RPM).
 
 % {{{ Internal functions
+base_name(RPM) ->
+    {name, Name} = lists:keyfind(name, 1, RPM),
+    {evr, {_, V, R}} = lists:keyfind(evr, 1, RPM),
+    <<Name/binary, $-, V/binary, $-, R/binary>>.
+
 normalize(Props, OtherProps) ->
     Extracted = OtherProps ++ convert(conversions(), gb_trees:from_orddict(lists:keysort(1, Props)), []),
     case is_source(Extracted) of
