@@ -85,22 +85,22 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
             if ((atom = (char *)calloc(length + 1, sizeof(char))) == NULL) {
                 return _ecrepo_lib_error(env, NOMEMORY);
-            } else {
-                enif_get_atom(env, argv[1], atom, length, ERL_NIF_LATIN1);
-
-                if (strcmp(atom, "all") == 0) {
-                    tags = NULL;    /* Duplicate of above? */
-                } else if (strcmp(atom, "index") == 0) {
-                    tags = DEFAULT_TAGS;
-                    tags_no = DEFAULT_TAGS_NO;
-                } else {
-                    free(atom);
-
-                    return enif_make_badarg(env);
-                }
-
-                free(atom);
             }
+
+            enif_get_atom(env, argv[1], atom, length, ERL_NIF_LATIN1);
+
+            if (strcmp(atom, "all") == 0) {
+                tags = NULL;    /* Duplicate of above? */
+            } else if (strcmp(atom, "index") == 0) {
+                tags = DEFAULT_TAGS;
+                tags_no = DEFAULT_TAGS_NO;
+            } else {
+                free(atom);
+
+                return enif_make_badarg(env);
+            }
+
+            free(atom);
         } else if (enif_get_list_length(env, argv[1], &length)) {
             if ((tags = _list_to_list(env, argv[1], length, &result)) == NULL) {
                 return result;
