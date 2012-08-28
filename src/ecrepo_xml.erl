@@ -10,6 +10,7 @@
 -define(HEADER, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n").
 
 -define(N(Arg), ecrepo_xml:format_to_bin("~b", [Arg])).
+-define(Q(Arg), ecrepo_lib:quote(Arg)).
 
 document(RootElement) ->
     Output = elem(RootElement, 0),
@@ -53,7 +54,7 @@ attrs2bin([{Name, Value} | Rest], Output) ->
             ?N(Value);
 
         is_binary(Value) ->
-            ecrepo_lib:quote(Value);
+            ?Q(Value);
 
         true ->
             throw({badarg, Value})
@@ -63,7 +64,7 @@ attrs2bin([], Output) ->
     Output.
 
 content2bin(Content, _) when is_binary(Content) ->
-    ecrepo_lib:quote(Content);
+    ?Q(Content);
 content2bin(Content, _) when is_number(Content) ->
     ?N(Content);
 content2bin(Content, Indent) ->
