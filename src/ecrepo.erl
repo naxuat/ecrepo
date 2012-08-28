@@ -59,22 +59,14 @@ base_name(RPM) ->
 
 normalize(Props, OtherProps) ->
     Extracted = OtherProps ++ convert(conversions(), gb_trees:from_orddict(lists:keysort(1, Props)), []),
-    case is_source(Extracted) of
-        true ->
-            {source, lists:keysort(1, [{sourcerpm, <<>>} | lists:keyreplace(arch, 1, Extracted, {arch, ?SRC_ARCH})])};
-
+    {Kind, Result} = case lists:keyfind('source', 1, Extracted) of
         false ->
-            {binary, lists:keysort(1, Extracted)}
-    end.
-
-is_source(Props) ->
-    case lists:keyfind('source', 1, Props) of
-        false ->
-            false;
+            {binary, Extracted};
 
         _ ->
-            true
-    end.
+            {source, [{sourcerpm, <<>>} | lists:keyreplace(arch, 1, Extracted, {arch, ?SRC_ARCH})]}
+    end,
+    {Kind, lists:keysort(1, Result)}.
 
 conversions() -> [
     {fun evr/3, [none]},
