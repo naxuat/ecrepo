@@ -77,6 +77,18 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
         return enif_make_badarg(env);
     }
 
+    if ((filename = (char *)calloc(binary.size + 1, sizeof(char))) == NULL) {
+        return _ecrepo_lib_error(env, NOMEMORY);
+    }
+
+    memcpy(filename, binary.data, binary.size);
+
+    if ((fd = Fopen(filename, "r")) == NULL) {
+        result = _ecrepo_lib_error(env, "open");
+
+        goto fail_filename;
+    }
+
     if (argc == 2) {
         unsigned length;
 
@@ -84,7 +96,9 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
             char *atom;
 
             if ((atom = (char *)calloc(length + 1, sizeof(char))) == NULL) {
-                return _ecrepo_lib_error(env, NOMEMORY);
+                result = _ecrepo_lib_error(env, NOMEMORY);
+
+                goto fail_fd;
             }
 
             enif_get_atom(env, argv[1], atom, length, ERL_NIF_LATIN1);
@@ -97,33 +111,26 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
             } else {
                 free(atom);
 
-                return enif_make_badarg(env);
+                result = enif_make_badarg(env);
+
+                goto fail_fd;
             }
 
             free(atom);
         } else if (enif_get_list_length(env, argv[1], &length)) {
             if ((tags = _list_to_list(env, argv[1], length, &result)) == NULL) {
-                return result;
+                goto fail_fd;
             }
+
             tags_no = length;
         } else {
-            return enif_make_badarg(env);
+            result = enif_make_badarg(env);
+
+            goto fail_fd;
         }
     } else {
         tags = DEFAULT_TAGS;
         tags_no = DEFAULT_TAGS_NO;
-    }
-
-    if ((filename = (char *)calloc(binary.size + 1, sizeof(char))) == NULL) {
-        return _ecrepo_lib_error(env, NOMEMORY);
-    }
-
-    memcpy(filename, binary.data, binary.size);
-
-    if ((fd = Fopen(filename, "r")) == NULL) {
-        free(filename);
-
-        return _ecrepo_lib_error(env, "open");
     }
 
     result = _ecrepo_lib_header(env, fd, filename, tags, tags_no);
@@ -132,8 +139,11 @@ static ERL_NIF_TERM ecrepo_lib_header(ErlNifEnv *env, int argc, const ERL_NIF_TE
         free(tags);
     }
 
-    free(filename);
+fail_fd:
     Fclose(fd);
+
+fail_filename:
+    free(filename);
 
     return result;
 }
