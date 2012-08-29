@@ -33,7 +33,7 @@ elem2bin({Tag, Attrs, Content}, Indent) ->
     TagName = tag2name(Tag),
     Preamble = <<"<", TagName/binary, (attrs2bin(Attrs))/binary>>,
     case Content of
-        Blah when Blah == []; Blah == <<>> ->
+        Empty when Empty == []; Empty == <<>> ->
             <<Preamble/binary, "/>\n">>;
 
         _ ->
