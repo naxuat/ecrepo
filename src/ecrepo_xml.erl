@@ -30,7 +30,7 @@ elem(Item, Indent) ->
     elem2bin(Item, Indent).
 
 elem2bin({Tag, Attrs, Content}, Indent) ->
-    TagName = tag2name(Tag),
+    TagName = name2name(Tag),
     Preamble = <<"<", TagName/binary, (attrs2bin(Attrs))/binary>>,
     case Content of
         Empty when Empty == []; Empty == <<>> ->
@@ -40,10 +40,10 @@ elem2bin({Tag, Attrs, Content}, Indent) ->
             <<Preamble/binary, ">", (content2bin(Content, Indent + 2))/binary, "</", TagName/binary, ">\n">>
     end.
 
-tag2name(Tag) when is_atom(Tag) ->
-    atom_to_binary(Tag, latin1);
-tag2name({NS, Tag}) when is_atom(NS), is_atom(Tag) ->
-    <<(atom_to_binary(NS, latin1))/binary, ":", (atom_to_binary(Tag, latin1))/binary>>.
+name2name(Name) when is_atom(Name) ->
+    atom_to_binary(Name, latin1);
+name2name({NS, Name}) when is_atom(NS), is_atom(Name) ->
+    <<(atom_to_binary(NS, latin1))/binary, ":", (atom_to_binary(Name, latin1))/binary>>.
 
 attrs2bin(Attrs) ->
     attrs2bin(Attrs, <<>>).
@@ -59,7 +59,7 @@ attrs2bin([{Name, Value} | Rest], Output) ->
         true ->
             throw({badarg, Value})
     end,
-    attrs2bin(Rest, <<Output/binary, " ", (tag2name(Name))/binary, "=\"", ActualValue/binary, "\"">>);
+    attrs2bin(Rest, <<Output/binary, " ", (name2name(Name))/binary, "=\"", ActualValue/binary, "\"">>);
 attrs2bin([], Output) ->
     Output.
 
